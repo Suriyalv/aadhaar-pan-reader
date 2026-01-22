@@ -1,25 +1,68 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+import { Container, Typography } from "@mui/material";
+import UploadCard from "./components/UploadCard";
+import PreviewCard from "./components/PreviewCard";
+import ResultCard from "./components/ResultCard";
 
-function App() {
+import { extractIDNumbers } from "./components/OCRProcessor";
+import { pdfToImage } from "./utils/pdfToImage";
+
+export default function App() {
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState({});
+  const [error, setError] = useState("");
+
+  const handleFile = async (file) => {
+    if (!file) return;
+
+    setError("");
+    setResult({});
+    setLoading(true);
+
+    let imageSrc = "";
+
+    try {
+      if (file.type === "application/pdf") {
+        imageSrc = await pdfToImage(file);
+      } else if (file.type.startsWith("image/")) {
+        imageSrc = URL.createObjectURL(file);
+      } else {
+        throw new Error("Unsupported file type");
+      }
+
+      setPreview(imageSrc);
+
+      const data = await extractIDNumbers(imageSrc);
+
+      if (!data.aadhaar && !data.pan) {
+        throw new Error(
+          "Unable to detect Aadhaar or PAN number. Please upload a clearer image or PDF."
+        );
+      }
+
+      setResult(data);
+    } catch (err) {
+      setError(err.message);
+    }
+
+    setLoading(false);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Container maxWidth="sm" sx={{ mt: 5 }}>
+      <Typography variant="h4" textAlign="center" mb={4}>
+        Aadhaar / PAN Card Reader
+      </Typography>
+
+      <UploadCard onFileSelect={handleFile} />
+      <PreviewCard preview={preview} />
+      <ResultCard
+        aadhaar={result.aadhaar}
+        pan={result.pan}
+        error={error}
+        loading={loading}
+      />
+    </Container>
   );
 }
-
-export default App;
